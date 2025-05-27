@@ -3,29 +3,22 @@ import aiohttp
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import os
-import random
 
-visited = set()
-queue = asyncio.Queue()
-semaphore = asyncio.Semaphore(30)
-OUTPUT_FILE = "crawler_repo/urls.txt"
 REPO_DIR = "crawler_repo"
-SCRIPT_NAME = "crawler.py"
-
-crawler_code = '''
-import asyncio
-import aiohttp
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
-
+OUTPUT_FILE = os.path.join(REPO_DIR, "urls.txt")
 visited = set()
 queue = asyncio.Queue()
 semaphore = asyncio.Semaphore(30)
-OUTPUT_FILE = "urls.txt"
 
 def save_url(url):
-    with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
-        f.write(url + "\\n")
+    if not os.path.exists(OUTPUT_FILE):
+        os.makedirs(REPO_DIR, exist_ok=True)
+        with open(OUTPUT_FILE, "w"): pass
+
+    with open(OUTPUT_FILE, "r+", encoding="utf-8") as f:
+        lines = set([line.strip() for line in f.readlines()])
+        if url not in lines:
+            f.write(url + "\n")
 
 async def fetch(session, url):
     try:
@@ -63,32 +56,15 @@ async def main(seed_url):
         t.cancel()
 
 if __name__ == "__main__":
+    import random
     try:
-        open(OUTPUT_FILE, "w").close()
-        seed = "https://example.com"
+        if os.path.exists(OUTPUT_FILE):
+            with open(OUTPUT_FILE, encoding="utf-8") as f:
+                urls = [line.strip() for line in f.readlines() if line.strip()]
+                seed = random.choice(urls) if urls else "https://example.com"
+        else:
+            seed = "https://example.com"
+
         asyncio.run(main(seed))
     except KeyboardInterrupt:
         print("Arrêt")
-'''
-
-def save_script_locally():
-    os.makedirs(REPO_DIR, exist_ok=True)
-    with open(os.path.join(REPO_DIR, SCRIPT_NAME), "w", encoding="utf-8") as f:
-        f.write(crawler_code)
-    print(f"✅ Fichier {SCRIPT_NAME} généré dans le dossier {REPO_DIR}")
-
-def pick_random_url():
-    if os.path.exists(OUTPUT_FILE):
-        with open(OUTPUT_FILE, encoding="utf-8") as f:
-            lines = f.readlines()
-            if lines:
-                return random.choice(lines).strip()
-    return None
-
-if __name__ == "__main__":
-    save_script_locally()
-    url = pick_random_url()
-    if url:
-        print(f"🎯 URL aléatoire depuis urls.txt : {url}")
-    else:
-        print("⚠️ Aucun site encore crawlé.")
